@@ -1,0 +1,41 @@
+name: noisenet
+
+services:
+  nanomq:
+    image: emqx/nanomq:0.25.1
+    command: ["nanomq", "start", "--conf", "/etc/nanomq.conf"]
+    volumes:
+      - ./nanomq/nanomq.conf:/etc/nanomq.conf:ro
+    ports:
+      - "${BIND_IP:?Run make configure to select a local IP}:1883:1883"
+      - "${BIND_IP:?Run make configure to select a local IP}:8083:8083"
+    restart: unless-stopped
+
+  pico-client:
+    build: ./pico-client
+    environment:
+      MQTT_HOST: nanomq
+      MQTT_PORT: "1883"
+      DEVICE_ID: pico-01
+      PUBLISH_INTERVAL_SECONDS: "10"
+    depends_on:
+      - nanomq
+    restart: unless-stopped
+
+  pi-server:
+    build: ./pi-server
+    environment:
+      MQTT_HOST: nanomq
+      MQTT_PORT: "1883"
+      MQTT_TOPIC_FILTER: noisenet/+/environment/temperature
+    depends_on:
+      - nanomq
+    restart: unless-stopped
+
+  mqtt-viewer:
+    build: ./mqtt-viewer
+    ports:
+      - "${BIND_IP:?Run make configure to select a local IP}:8080:80"
+    depends_on:
+      - nanomq
+    restart: unless-stopped
